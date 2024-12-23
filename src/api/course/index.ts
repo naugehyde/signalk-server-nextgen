@@ -100,7 +100,7 @@ export class CourseApi {
         debug('Found persisted course data')
         this.courseInfo = this.validateCourseInfo(storeData)
         this.cmdSource = this.courseInfo.nextPoint ? API_CMD_SRC : null
-      } catch (error) {
+      } catch (_error) {
         debug('No persisted course data (using default)')
       }
       debug(
@@ -208,6 +208,18 @@ export class CourseApi {
     })
   }
 
+  /** Test for valid Signal K position */
+  private isValidPosition(position: Position): boolean {
+    return (
+      typeof position?.latitude === 'number' &&
+      typeof position?.latitude === 'number' &&
+      position?.latitude >= -90 &&
+      position?.latitude <= 90 &&
+      position?.longitude >= -180 &&
+      position?.longitude <= 180
+    )
+  }
+
   /** Process stream value and take action
    * @param cmdSource Object describing the source of the update
    * @param pos Destination location value in the update
@@ -215,7 +227,7 @@ export class CourseApi {
   private async parseStreamValue(cmdSource: CommandSource, pos: Position) {
     if (!this.cmdSource) {
       // New source
-      if (!pos) {
+      if (!this.isValidPosition(pos)) {
         return
       }
       debug('parseStreamValue:', 'Setting Destination...')
@@ -228,8 +240,11 @@ export class CourseApi {
     }
 
     if (this.isCurrentCmdSource(cmdSource)) {
-      if (!pos) {
-        debug('parseStreamValue:', 'No position... Clear Destination...')
+      if (!this.isValidPosition(pos)) {
+        debug(
+          'parseStreamValue:',
+          'No or invalid position... Clear Destination...'
+        )
         this.clearDestination()
         return
       }
@@ -452,7 +467,7 @@ export class CourseApi {
               message: `Vessel position unavailable!`
             })
           }
-        } catch (err) {
+        } catch (_err) {
           res.status(400).json({
             state: 'FAILED',
             statusCode: 400,
@@ -659,7 +674,7 @@ export class CourseApi {
               res.status(400).json(Responses.invalid)
               return false
             }
-          } catch (err) {
+          } catch (_err) {
             console.log(`** Course API: Unable to retrieve vessel position!`)
             res.status(400).json(Responses.invalid)
             return false
@@ -741,7 +756,7 @@ export class CourseApi {
         } else {
           throw new Error(`Error: Unable to retrieve vessel position!`)
         }
-      } catch (err) {
+      } catch (_err) {
         throw new Error(`Error: Unable to retrieve vessel position!`)
       }
     } else {
@@ -798,14 +813,14 @@ export class CourseApi {
           } else {
             throw new Error(`Invalid waypoint coordinate data! (${dest.href})`)
           }
-        } catch (err) {
+        } catch (_err) {
           throw new Error(`Error retrieving and validating ${dest.href}`)
         }
       } else {
         throw new Error(`Invalid href! (${dest.href})`)
       }
     } else if ('position' in dest) {
-      if (isValidCoordinate(dest.position)) {
+      if (this.isValidPosition(dest.position)) {
         newCourse.nextPoint = {
           position: dest.position,
           type: Location
@@ -833,7 +848,7 @@ export class CourseApi {
           `Error: navigation.position.value is undefined! (${position})`
         )
       }
-    } catch (err) {
+    } catch (_err) {
       throw new Error(`Error: Unable to retrieve vessel position!`)
     }
 
@@ -931,7 +946,7 @@ export class CourseApi {
         return (await this.resourcesApi.getResource(h.type, h.id)) as
           | Route
           | undefined
-      } catch (err) {
+      } catch (_err) {
         debug(`** Unable to fetch resource: ${h.type}, ${h.id}`)
         return undefined
       }
